@@ -17,4 +17,20 @@ class IncidentTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new Incident("", "RTR-1001", IncidentSeverity.CRITICAL, "Link unavailable"));
     }
+
+    @Test
+    void enforcesLifecycleAndPreventsClosedIncidentChanges() {
+        Incident incident = new Incident("STH-001", "RTR-1001", IncidentSeverity.CRITICAL, "Link unavailable");
+        Instant occurredAt = Instant.parse("2026-09-18T12:00:00Z");
+
+        assertThrows(IllegalStateException.class, () -> incident.investigate());
+        incident.acknowledge(occurredAt);
+        incident.investigate();
+        incident.resolve(occurredAt);
+        incident.close(occurredAt);
+
+        assertEquals(IncidentStatus.CLOSED, incident.status());
+        assertThrows(IllegalStateException.class, () -> incident.changeSeverity(IncidentSeverity.MINOR));
+        assertThrows(IllegalStateException.class, () -> incident.assignOwner("NOC"));
+    }
 }

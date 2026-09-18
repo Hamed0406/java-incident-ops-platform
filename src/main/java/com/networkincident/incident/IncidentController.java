@@ -38,11 +38,43 @@ public class IncidentController {
 
     @PostMapping("/{id}/resolve")
     public IncidentResponse resolve(@PathVariable UUID id) {
-        Incident incident = incidents.get(id);
-        if (incident == null) {
-            throw new IncidentNotFoundException();
-        }
+        Incident incident = incident(id);
         incident.resolve(Instant.now());
+        return IncidentResponse.from(incident);
+    }
+
+    @PostMapping("/{id}/acknowledge")
+    public IncidentResponse acknowledge(@PathVariable UUID id) {
+        Incident incident = incident(id);
+        incident.acknowledge(Instant.now());
+        return IncidentResponse.from(incident);
+    }
+
+    @PostMapping("/{id}/investigate")
+    public IncidentResponse investigate(@PathVariable UUID id) {
+        Incident incident = incident(id);
+        incident.investigate();
+        return IncidentResponse.from(incident);
+    }
+
+    @PostMapping("/{id}/close")
+    public IncidentResponse close(@PathVariable UUID id) {
+        Incident incident = incident(id);
+        incident.close(Instant.now());
+        return IncidentResponse.from(incident);
+    }
+
+    @org.springframework.web.bind.annotation.PutMapping("/{id}/severity")
+    public IncidentResponse changeSeverity(@PathVariable UUID id, @RequestBody ChangeSeverityRequest request) {
+        Incident incident = incident(id);
+        incident.changeSeverity(request.severity());
+        return IncidentResponse.from(incident);
+    }
+
+    @org.springframework.web.bind.annotation.PutMapping("/{id}/owner")
+    public IncidentResponse assignOwner(@PathVariable UUID id, @RequestBody AssignOwnerRequest request) {
+        Incident incident = incident(id);
+        incident.assignOwner(request.owner());
         return IncidentResponse.from(incident);
     }
 
@@ -58,14 +90,36 @@ public class IncidentController {
                 .body(ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage()));
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    ResponseEntity<ProblemDetail> conflict(IllegalStateException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage()));
+    }
+
+    private Incident incident(UUID id) {
+        Incident incident = incidents.get(id);
+        if (incident == null) {
+            throw new IncidentNotFoundException();
+        }
+        return incident;
+    }
+
     record CreateIncidentRequest(String siteId, String assetId, IncidentSeverity severity, String description) {
     }
 
+    record ChangeSeverityRequest(IncidentSeverity severity) {
+    }
+
+    record AssignOwnerRequest(String owner) {
+    }
+
     record IncidentResponse(UUID id, String siteId, String assetId, IncidentSeverity severity, IncidentStatus status,
-                            String description, Instant createdAt, Instant resolvedAt) {
+                            String description, String owner, Instant createdAt, Instant acknowledgedAt,
+                            Instant resolvedAt, Instant closedAt) {
         static IncidentResponse from(Incident incident) {
             return new IncidentResponse(incident.id(), incident.siteId(), incident.assetId(), incident.severity(),
-                    incident.status(), incident.description(), incident.createdAt(), incident.resolvedAt());
+                    incident.status(), incident.description(), incident.owner(), incident.createdAt(),
+                    incident.acknowledgedAt(), incident.resolvedAt(), incident.closedAt());
         }
     }
 
