@@ -1,7 +1,10 @@
 package com.networkincident.incident;
 
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.http.HttpStatus;
@@ -13,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -34,6 +38,38 @@ public class IncidentController {
             throw new IncidentNotFoundException();
         }
         return IncidentResponse.from(incident);
+    }
+
+    @GetMapping
+    public PageResponse list(
+            @RequestParam Optional<IncidentStatus> status,
+            @RequestParam Optional<IncidentSeverity> severity,
+            @RequestParam Optional<String> siteId,
+            @RequestParam Optional<String> assetId,
+            @RequestParam Optional<Instant> createdFrom,
+            @RequestParam Optional<Instant> createdTo,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize) {
+        if (page < 1 || pageSize < 1 || pageSize > 100) {
+            throw new IllegalArgumentException("Page must be at least 1 and page size must be between 1 and 100.");
+        }
+        if (createdFrom.isPresent() && createdTo.isPresent() && createdFrom.get().isAfter(createdTo.get())) {
+            throw new IllegalArgumentException("createdFrom must not be after createdTo.");
+        }
+
+        List<IncidentResponse> matches = incidents.values().stream()
+                .filter(incident -> status.map(value -> incident.status() == value).orElse(true))
+                .filter(incident -> severity.map(value -> incident.severity() == value).orElse(true))
+                .filter(incident -> siteId.map(value -> incident.siteId().equals(value.trim())).orElse(true))
+                .filter(incident -> assetId.map(value -> incident.assetId().equals(value.trim())).orElse(true))
+                .filter(incident -> createdFrom.map(value -> !incident.createdAt().isBefore(value)).orElse(true))
+                .filter(incident -> createdTo.map(value -> !incident.createdAt().isAfter(value)).orElse(true))
+                .sorted(Comparator.comparing(Incident::createdAt).thenComparing(Incident::id))
+                .map(IncidentResponse::from)
+                .toList();
+        int from = Math.min((page - 1) * pageSize, matches.size());
+        int to = Math.min(from + pageSize, matches.size());
+        return new PageResponse(matches.size(), page, pageSize, matches.subList(from, to));
     }
 
     @PostMapping("/{id}/resolve")
@@ -111,6 +147,9 @@ public class IncidentController {
     }
 
     record AssignOwnerRequest(String owner) {
+    }
+
+    record PageResponse(int totalElements, int page, int pageSize, List<IncidentResponse> items) {
     }
 
     record IncidentResponse(UUID id, String siteId, String assetId, IncidentSeverity severity, IncidentStatus status,

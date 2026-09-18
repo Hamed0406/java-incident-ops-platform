@@ -81,4 +81,33 @@ class IncidentControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.owner").value("NOC"));
     }
+
+    @Test
+    void filtersAndPaginatesIncidents() throws Exception {
+        create("LIST-001", "RTR-1", "MINOR");
+        create("LIST-001", "RTR-2", "CRITICAL");
+        create("LIST-002", "RTR-3", "CRITICAL");
+
+        mockMvc.perform(get("/api/incidents")
+                        .param("siteId", "LIST-001")
+                        .param("severity", "CRITICAL")
+                        .param("page", "1")
+                        .param("pageSize", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.items[0].assetId").value("RTR-2"));
+
+        mockMvc.perform(get("/api/incidents").param("page", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    private void create(String siteId, String assetId, String severity) throws Exception {
+        mockMvc.perform(post("/api/incidents")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"siteId":"%s","assetId":"%s","severity":"%s","description":"Link unavailable"}
+                                """.formatted(siteId, assetId, severity)))
+                .andExpect(status().isCreated());
+    }
 }

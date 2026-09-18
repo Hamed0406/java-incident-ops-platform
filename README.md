@@ -13,6 +13,7 @@ The service exposes:
 - `GET /health/ready`
 - `POST /api/incidents`
 - `GET /api/incidents/{id}`
+- `GET /api/incidents` (filters: `status`, `severity`, `siteId`, `assetId`, `createdFrom`, `createdTo`; pagination: `page`, `pageSize`)
 - `POST /api/incidents/{id}/resolve`
 - `POST /api/incidents/{id}/acknowledge`
 - `POST /api/incidents/{id}/investigate`
