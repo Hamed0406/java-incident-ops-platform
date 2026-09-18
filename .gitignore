@@ -1,0 +1,24 @@
+# Build output
+target/
+build/
+out/
+
+# IDE settings
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+
+# Eclipse and VS Code
+.factorypath
+.vscode/
+
+# Java runtime files
+*.class
+*.log
+hs_err_pid*
+
+# Operating-system files
+.DS_Store
+Thumbs.db
